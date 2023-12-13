@@ -1,0 +1,12 @@
+func (c *{{.InmemTypeName}}) {{.Method.GoName}}(ctx context.Context, in *{{.Method.Input.GoIdent.GoName}}, opts...grpc.CallOption) ({{.ServiceName}}_{{.Method.GoName}}Client, error) {
+   md, found := metadata.FromOutgoingContext(ctx)
+   if found {
+      ctx = metadata.NewIncomingContext(ctx, md)
+   }
+   st := newInmemStreamFromServer[*{{.Method.Output.GoIdent.GoName}}](ctx)
+   go func() {
+       st.CloseServerStream(c.srv.{{.Method.GoName}}(in, st))
+   }()
+
+   return st, nil
+}
