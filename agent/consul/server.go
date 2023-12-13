@@ -1509,12 +1509,12 @@ func (s *Server) setupInsecureResourceServiceClient(typeRegistry resource.Regist
 		UseV2Tenancy:  s.useV2Tenancy,
 	})
 
-	conn, err := s.runInProcessGRPCServer(server.Register)
+	client, err := pbresource.NewInmemResourceServiceClient(server)
 	if err != nil {
 		return err
 	}
-	s.insecureResourceServiceClient = pbresource.NewResourceServiceClient(conn)
-	tenancyBridgeV2.WithClient(s.insecureResourceServiceClient)
+	s.insecureResourceServiceClient = client
+	tenancyBridgeV2.WithClient(client)
 	return nil
 }
 

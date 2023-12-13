@@ -9,13 +9,10 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/hashicorp/consul/acl"
 	svc "github.com/hashicorp/consul/agent/grpc-external/services/resource"
 	"github.com/hashicorp/consul/agent/grpc-external/testutils"
-	internal "github.com/hashicorp/consul/agent/grpc-internal"
 	"github.com/hashicorp/consul/internal/resource"
 	"github.com/hashicorp/consul/internal/storage/inmem"
 	"github.com/hashicorp/consul/internal/tenancy"
@@ -30,6 +27,7 @@ type builder struct {
 	tenancies    []*pbresource.Tenancy
 	aclResolver  svc.ACLResolver
 	serviceImpl  *svc.Server
+	cloning      bool
 }
 
 // NewResourceServiceBuilder is the preferred way to configure and run
@@ -43,6 +41,7 @@ func NewResourceServiceBuilder() *builder {
 		// Regardless of whether using mock of v2tenancy, always make sure
 		// the builtin tenancy exists.
 		tenancies: []*pbresource.Tenancy{resource.DefaultNamespacedTenancy()},
+		cloning:   true,
 	}
 	return b
 }
@@ -87,6 +86,22 @@ func (b *builder) WithTenancies(tenancies ...*pbresource.Tenancy) *builder {
 	for _, tenancy := range tenancies {
 		b.tenancies = append(b.tenancies, tenancy)
 	}
+	return b
+}
+
+// WithCloningDisabled disables resource service client functionality that will
+// clone protobuf message types as they pass through. By default
+// cloning is enabled.
+//
+// For in-process gRPC interactions we prefer to use an in-memory gRPC client. This
+// allows our controller infrastructure to avoid any unnecessary protobuf serialization
+// and deserialization and for controller caching to not duplicate memory that the
+// resource service is already holding on to. However, clients (including controllers)
+// often want to be able to perform read-modify-write ops and for the sake of not
+// forcing all call sites to be aware of the shared memory and to not touch it we
+// enable cloning in the clients that we give to those bits of code.
+func (b *builder) WithCloningDisabled() *builder {
+	b.cloning = false
 	return b
 }
 
@@ -161,24 +176,14 @@ func (b *builder) Run(t *testing.T) pbresource.ResourceServiceClient {
 		UseV2Tenancy:  b.useV2Tenancy,
 	}
 
-	server := grpc.NewServer()
-
 	b.serviceImpl = svc.NewServer(config)
-	b.serviceImpl.Register(server)
-
-	pipe := internal.NewPipeListener()
-	go server.Serve(pipe)
-	t.Cleanup(server.Stop)
-
-	conn, err := grpc.Dial("",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithContextDialer(pipe.DialContext),
-		grpc.WithBlock(),
-	)
+	client, err := pbresource.NewInmemResourceServiceClient(b.serviceImpl)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = conn.Close() })
 
-	client := pbresource.NewResourceServiceClient(conn)
+	if b.cloning {
+		// enable protobuf cloning wrapper
+		client = pbresource.NewCloningResourceServiceClient(client)
+	}
 
 	// HACK ALERT: The client needs to be injected into the V2TenancyBridge
 	// after it has been created due the the circular dependency. This will
