@@ -16,8 +16,9 @@ import (
 
 // Manager is responsible for scheduling the execution of controllers.
 type Manager struct {
-	client pbresource.ResourceServiceClient
-	logger hclog.Logger
+	client     pbresource.ResourceServiceClient
+	cloningClient pbresource.ResourceServiceClient
+	logger     hclog.Logger
 
 	raftLeader atomic.Bool
 
@@ -31,8 +32,9 @@ type Manager struct {
 // base logger for controllers when one is not specified using WithLogger.
 func NewManager(client pbresource.ResourceServiceClient, logger hclog.Logger) *Manager {
 	return &Manager{
-		client: client,
-		logger: logger,
+		client:     client,
+		cloningClient: pbresource.NewCloningResourceServiceClient(client),
+		logger:     logger,
 	}
 }
 
@@ -65,7 +67,7 @@ func (m *Manager) Run(ctx context.Context) {
 	m.running = true
 
 	for _, desc := range m.controllers {
-		runner := newControllerRunner(desc, m.client, m.logger)
+		runner := newControllerRunner(desc, m.client, m.cloningClient, m.logger)
 		go newSupervisor(runner.run, m.newLeaseLocked(desc)).run(ctx)
 	}
 }

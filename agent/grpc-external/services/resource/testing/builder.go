@@ -5,7 +5,6 @@ package testing
 
 import (
 	"context"
-	"testing"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -20,7 +19,7 @@ import (
 	"github.com/hashicorp/consul/sdk/testutil"
 )
 
-type builder struct {
+type Builder struct {
 	registry     resource.Registry
 	registerFns  []func(resource.Registry)
 	useV2Tenancy bool
@@ -34,8 +33,8 @@ type builder struct {
 // an isolated in-process instance of the resource service for unit
 // testing. The final call to `Run()` returns a client you can use for
 // making requests.
-func NewResourceServiceBuilder() *builder {
-	b := &builder{
+func NewResourceServiceBuilder() *Builder {
+	b := &Builder{
 		useV2Tenancy: false,
 		registry:     resource.NewRegistry(),
 		// Regardless of whether using mock of v2tenancy, always make sure
@@ -50,39 +49,39 @@ func NewResourceServiceBuilder() *builder {
 //
 // true  => real v2 default partition and namespace via v2 tenancy bridge
 // false => mock default partition and namespace since v1 tenancy bridge can't be used (not spinning up an entire server here)
-func (b *builder) WithV2Tenancy(useV2Tenancy bool) *builder {
+func (b *Builder) WithV2Tenancy(useV2Tenancy bool) *Builder {
 	b.useV2Tenancy = useV2Tenancy
 	return b
 }
 
 // Registry provides access to the constructed registry post-Run() when
 // needed by other test dependencies.
-func (b *builder) Registry() resource.Registry {
+func (b *Builder) Registry() resource.Registry {
 	return b.registry
 }
 
 // ServiceImpl provides access to the actual server side implemenation of the resource service. This should never be used
 // used/accessed without good reason. The current justifying use case is to monkeypatch the ACL resolver post-creation
 // to allow unfettered writes which some ACL related tests require to put test data in place.
-func (b *builder) ServiceImpl() *svc.Server {
+func (b *Builder) ServiceImpl() *svc.Server {
 	return b.serviceImpl
 }
 
-func (b *builder) WithRegisterFns(registerFns ...func(resource.Registry)) *builder {
+func (b *Builder) WithRegisterFns(registerFns ...func(resource.Registry)) *Builder {
 	for _, registerFn := range registerFns {
 		b.registerFns = append(b.registerFns, registerFn)
 	}
 	return b
 }
 
-func (b *builder) WithACLResolver(aclResolver svc.ACLResolver) *builder {
+func (b *Builder) WithACLResolver(aclResolver svc.ACLResolver) *Builder {
 	b.aclResolver = aclResolver
 	return b
 }
 
 // WithTenancies adds additional partitions and namespaces if default/default
 // is not sufficient.
-func (b *builder) WithTenancies(tenancies ...*pbresource.Tenancy) *builder {
+func (b *Builder) WithTenancies(tenancies ...*pbresource.Tenancy) *Builder {
 	for _, tenancy := range tenancies {
 		b.tenancies = append(b.tenancies, tenancy)
 	}
@@ -100,13 +99,13 @@ func (b *builder) WithTenancies(tenancies ...*pbresource.Tenancy) *builder {
 // often want to be able to perform read-modify-write ops and for the sake of not
 // forcing all call sites to be aware of the shared memory and to not touch it we
 // enable cloning in the clients that we give to those bits of code.
-func (b *builder) WithCloningDisabled() *builder {
+func (b *Builder) WithCloningDisabled() *Builder {
 	b.cloning = false
 	return b
 }
 
 // Run starts the resource service and returns a client.
-func (b *builder) Run(t *testing.T) pbresource.ResourceServiceClient {
+func (b *Builder) Run(t testutil.TestingTB) pbresource.ResourceServiceClient {
 	// backend cannot be customized
 	backend, err := inmem.NewBackend()
 	require.NoError(t, err)
