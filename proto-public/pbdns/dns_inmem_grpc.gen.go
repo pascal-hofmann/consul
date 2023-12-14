@@ -25,10 +25,23 @@ type InmemDNSServiceClient struct {
 	srv DNSServiceServer
 }
 
+// isInmemDNSServiceClient is an interface that can be used to detect that a
+// DNSServiceClient is actually using the in-memory transport.
+type IsInmemDNSServiceClient interface {
+	IsInmemDNSServiceClient() bool
+}
+
 func NewInmemDNSServiceClient(srv DNSServiceServer) (DNSServiceClient, error) {
 	return &InmemDNSServiceClient{
 		srv: srv,
 	}, nil
+}
+
+// IsInmemDNSServiceClient implements the IsInmemDNSServiceClient interface. This
+// can be used to detect that the in-memory transport is in use and alter
+// behavior accordingly.
+func (c InmemDNSServiceClient) IsInmemDNSServiceClient() bool {
+	return true
 }
 
 func (c *InmemDNSServiceClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
@@ -48,6 +61,14 @@ func (c *InmemDNSServiceClient) Query(ctx context.Context, in *QueryRequest, opt
 // of the grpc client interfaces methods.
 var _ DNSServiceClient = CloningDNSServiceClient{}
 
+// IsCloningDNSServiceClient is an interface that can be used to detect
+// that a DNSServiceClient is using the in-memory transport and has already
+// been wrapped with a with a CloningDNSServiceClient.
+type IsCloningDNSServiceClient interface {
+	IsCloningDNSServiceClient() bool
+	IsInmemDNSServiceClient
+}
+
 // CloningDNSServiceClient implements the DNSServiceClient interface by wrapping
 // another implementation and copying all protobuf messages that pass through the client.
 // This is mainly useful to wrap the InmemDNSServiceClient client to insulate users of that
@@ -57,10 +78,27 @@ type CloningDNSServiceClient struct {
 	DNSServiceClient
 }
 
-func NewCloningDNSServiceClient(client DNSServiceClient) CloningDNSServiceClient {
+func NewCloningDNSServiceClient(client DNSServiceClient) DNSServiceClient {
+	if cloner, ok := client.(IsCloningDNSServiceClient); ok && cloner.IsCloningDNSServiceClient() {
+		// prevent a double clone if the underlying client is already the cloning client.
+		return client
+	}
+
+	if inmem, ok := client.(IsInmemDNSServiceClient); !ok || !inmem.IsInmemDNSServiceClient() {
+		// when not using the in-mem transport we can assume that protobuf serialization and deserialization
+		// is already occurring and prevent wrapping.
+		return client
+	}
+
 	return CloningDNSServiceClient{
 		DNSServiceClient: client,
 	}
+}
+
+// IsCloningDNSServiceClient implements the IsCloningDNSServiceClient interface. This
+// is only used to detect wrapped clients that would be double cloning data and prevent that.
+func (c CloningDNSServiceClient) IsCloningDNSServiceClient() bool {
+	return true
 }
 
 func (c CloningDNSServiceClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {

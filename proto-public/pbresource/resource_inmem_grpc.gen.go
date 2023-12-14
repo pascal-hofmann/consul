@@ -25,10 +25,23 @@ type InmemResourceServiceClient struct {
 	srv ResourceServiceServer
 }
 
+// isInmemResourceServiceClient is an interface that can be used to detect that a
+// ResourceServiceClient is actually using the in-memory transport.
+type IsInmemResourceServiceClient interface {
+	IsInmemResourceServiceClient() bool
+}
+
 func NewInmemResourceServiceClient(srv ResourceServiceServer) (ResourceServiceClient, error) {
 	return &InmemResourceServiceClient{
 		srv: srv,
 	}, nil
+}
+
+// IsInmemResourceServiceClient implements the IsInmemResourceServiceClient interface. This
+// can be used to detect that the in-memory transport is in use and alter
+// behavior accordingly.
+func (c InmemResourceServiceClient) IsInmemResourceServiceClient() bool {
+	return true
 }
 
 func (c *InmemResourceServiceClient) Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error) {
@@ -126,6 +139,14 @@ func (c *InmemResourceServiceClient) WatchList(ctx context.Context, in *WatchLis
 // of the grpc client interfaces methods.
 var _ ResourceServiceClient = CloningResourceServiceClient{}
 
+// IsCloningResourceServiceClient is an interface that can be used to detect
+// that a ResourceServiceClient is using the in-memory transport and has already
+// been wrapped with a with a CloningResourceServiceClient.
+type IsCloningResourceServiceClient interface {
+	IsCloningResourceServiceClient() bool
+	IsInmemResourceServiceClient
+}
+
 // CloningResourceServiceClient implements the ResourceServiceClient interface by wrapping
 // another implementation and copying all protobuf messages that pass through the client.
 // This is mainly useful to wrap the InmemResourceServiceClient client to insulate users of that
@@ -135,10 +156,27 @@ type CloningResourceServiceClient struct {
 	ResourceServiceClient
 }
 
-func NewCloningResourceServiceClient(client ResourceServiceClient) CloningResourceServiceClient {
+func NewCloningResourceServiceClient(client ResourceServiceClient) ResourceServiceClient {
+	if cloner, ok := client.(IsCloningResourceServiceClient); ok && cloner.IsCloningResourceServiceClient() {
+		// prevent a double clone if the underlying client is already the cloning client.
+		return client
+	}
+
+	if inmem, ok := client.(IsInmemResourceServiceClient); !ok || !inmem.IsInmemResourceServiceClient() {
+		// when not using the in-mem transport we can assume that protobuf serialization and deserialization
+		// is already occurring and prevent wrapping.
+		return client
+	}
+
 	return CloningResourceServiceClient{
 		ResourceServiceClient: client,
 	}
+}
+
+// IsCloningResourceServiceClient implements the IsCloningResourceServiceClient interface. This
+// is only used to detect wrapped clients that would be double cloning data and prevent that.
+func (c CloningResourceServiceClient) IsCloningResourceServiceClient() bool {
+	return true
 }
 
 func (c CloningResourceServiceClient) Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error) {
@@ -238,5 +276,5 @@ func (c CloningResourceServiceClient) WatchList(ctx context.Context, in *WatchLi
 		return nil, err
 	}
 
-	return newCloningStream(st), nil
+	return newCloningStream[*WatchEvent](st), nil
 }

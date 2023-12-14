@@ -25,10 +25,23 @@ type InmemDataplaneServiceClient struct {
 	srv DataplaneServiceServer
 }
 
+// isInmemDataplaneServiceClient is an interface that can be used to detect that a
+// DataplaneServiceClient is actually using the in-memory transport.
+type IsInmemDataplaneServiceClient interface {
+	IsInmemDataplaneServiceClient() bool
+}
+
 func NewInmemDataplaneServiceClient(srv DataplaneServiceServer) (DataplaneServiceClient, error) {
 	return &InmemDataplaneServiceClient{
 		srv: srv,
 	}, nil
+}
+
+// IsInmemDataplaneServiceClient implements the IsInmemDataplaneServiceClient interface. This
+// can be used to detect that the in-memory transport is in use and alter
+// behavior accordingly.
+func (c InmemDataplaneServiceClient) IsInmemDataplaneServiceClient() bool {
+	return true
 }
 
 func (c *InmemDataplaneServiceClient) GetSupportedDataplaneFeatures(ctx context.Context, in *GetSupportedDataplaneFeaturesRequest, opts ...grpc.CallOption) (*GetSupportedDataplaneFeaturesResponse, error) {
@@ -61,6 +74,14 @@ func (c *InmemDataplaneServiceClient) GetEnvoyBootstrapParams(ctx context.Contex
 // of the grpc client interfaces methods.
 var _ DataplaneServiceClient = CloningDataplaneServiceClient{}
 
+// IsCloningDataplaneServiceClient is an interface that can be used to detect
+// that a DataplaneServiceClient is using the in-memory transport and has already
+// been wrapped with a with a CloningDataplaneServiceClient.
+type IsCloningDataplaneServiceClient interface {
+	IsCloningDataplaneServiceClient() bool
+	IsInmemDataplaneServiceClient
+}
+
 // CloningDataplaneServiceClient implements the DataplaneServiceClient interface by wrapping
 // another implementation and copying all protobuf messages that pass through the client.
 // This is mainly useful to wrap the InmemDataplaneServiceClient client to insulate users of that
@@ -70,10 +91,27 @@ type CloningDataplaneServiceClient struct {
 	DataplaneServiceClient
 }
 
-func NewCloningDataplaneServiceClient(client DataplaneServiceClient) CloningDataplaneServiceClient {
+func NewCloningDataplaneServiceClient(client DataplaneServiceClient) DataplaneServiceClient {
+	if cloner, ok := client.(IsCloningDataplaneServiceClient); ok && cloner.IsCloningDataplaneServiceClient() {
+		// prevent a double clone if the underlying client is already the cloning client.
+		return client
+	}
+
+	if inmem, ok := client.(IsInmemDataplaneServiceClient); !ok || !inmem.IsInmemDataplaneServiceClient() {
+		// when not using the in-mem transport we can assume that protobuf serialization and deserialization
+		// is already occurring and prevent wrapping.
+		return client
+	}
+
 	return CloningDataplaneServiceClient{
 		DataplaneServiceClient: client,
 	}
+}
+
+// IsCloningDataplaneServiceClient implements the IsCloningDataplaneServiceClient interface. This
+// is only used to detect wrapped clients that would be double cloning data and prevent that.
+func (c CloningDataplaneServiceClient) IsCloningDataplaneServiceClient() bool {
+	return true
 }
 
 func (c CloningDataplaneServiceClient) GetSupportedDataplaneFeatures(ctx context.Context, in *GetSupportedDataplaneFeaturesRequest, opts ...grpc.CallOption) (*GetSupportedDataplaneFeaturesResponse, error) {

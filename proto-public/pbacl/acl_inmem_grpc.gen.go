@@ -25,10 +25,23 @@ type InmemACLServiceClient struct {
 	srv ACLServiceServer
 }
 
+// isInmemACLServiceClient is an interface that can be used to detect that a
+// ACLServiceClient is actually using the in-memory transport.
+type IsInmemACLServiceClient interface {
+	IsInmemACLServiceClient() bool
+}
+
 func NewInmemACLServiceClient(srv ACLServiceServer) (ACLServiceClient, error) {
 	return &InmemACLServiceClient{
 		srv: srv,
 	}, nil
+}
+
+// IsInmemACLServiceClient implements the IsInmemACLServiceClient interface. This
+// can be used to detect that the in-memory transport is in use and alter
+// behavior accordingly.
+func (c InmemACLServiceClient) IsInmemACLServiceClient() bool {
+	return true
 }
 
 func (c *InmemACLServiceClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
@@ -61,6 +74,14 @@ func (c *InmemACLServiceClient) Logout(ctx context.Context, in *LogoutRequest, o
 // of the grpc client interfaces methods.
 var _ ACLServiceClient = CloningACLServiceClient{}
 
+// IsCloningACLServiceClient is an interface that can be used to detect
+// that a ACLServiceClient is using the in-memory transport and has already
+// been wrapped with a with a CloningACLServiceClient.
+type IsCloningACLServiceClient interface {
+	IsCloningACLServiceClient() bool
+	IsInmemACLServiceClient
+}
+
 // CloningACLServiceClient implements the ACLServiceClient interface by wrapping
 // another implementation and copying all protobuf messages that pass through the client.
 // This is mainly useful to wrap the InmemACLServiceClient client to insulate users of that
@@ -70,10 +91,27 @@ type CloningACLServiceClient struct {
 	ACLServiceClient
 }
 
-func NewCloningACLServiceClient(client ACLServiceClient) CloningACLServiceClient {
+func NewCloningACLServiceClient(client ACLServiceClient) ACLServiceClient {
+	if cloner, ok := client.(IsCloningACLServiceClient); ok && cloner.IsCloningACLServiceClient() {
+		// prevent a double clone if the underlying client is already the cloning client.
+		return client
+	}
+
+	if inmem, ok := client.(IsInmemACLServiceClient); !ok || !inmem.IsInmemACLServiceClient() {
+		// when not using the in-mem transport we can assume that protobuf serialization and deserialization
+		// is already occurring and prevent wrapping.
+		return client
+	}
+
 	return CloningACLServiceClient{
 		ACLServiceClient: client,
 	}
+}
+
+// IsCloningACLServiceClient implements the IsCloningACLServiceClient interface. This
+// is only used to detect wrapped clients that would be double cloning data and prevent that.
+func (c CloningACLServiceClient) IsCloningACLServiceClient() bool {
+	return true
 }
 
 func (c CloningACLServiceClient) Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error) {

@@ -13,10 +13,23 @@ type {{.InmemTypeName}} struct {
    srv {{.ServerTypeName}}
 }
 
+// is{{.InmemTypeName}} is an interface that can be used to detect that a
+// {{.ClientTypeName}} is actually using the in-memory transport.
+type Is{{.InmemTypeName}} interface {
+   Is{{.InmemTypeName}}() bool
+}
+
 func New{{.InmemTypeName}}(srv {{.ServerTypeName}}) ({{.ClientTypeName}}, error) {
    return &{{.InmemTypeName}}{
       srv: srv,
    }, nil
+}
+
+// Is{{.InmemTypeName}} implements the Is{{.InmemTypeName}} interface. This
+// can be used to detect that the in-memory transport is in use and alter
+// behavior accordingly.
+func (c {{.InmemTypeName}}) Is{{.InmemTypeName}}() bool {
+   return true
 }
 
 {{ range $method := .UnaryMethods }}
@@ -32,6 +45,14 @@ func New{{.InmemTypeName}}(srv {{.ServerTypeName}}) ({{.ClientTypeName}}, error)
 // of the grpc client interfaces methods.
 var _ {{.ClientTypeName}} = {{.CloningClientTypeName}}{}
 
+// Is{{.CloningClientTypeName}} is an interface that can be used to detect
+// that a {{.ClientTypeName}} is using the in-memory transport and has already
+// been wrapped with a with a {{.CloningClientTypeName}}.
+type Is{{.CloningClientTypeName}} interface {
+   Is{{.CloningClientTypeName}}() bool
+   Is{{.InmemTypeName}}
+}
+
 // {{.CloningClientTypeName}} implements the {{.ClientTypeName}} interface by wrapping
 // another implementation and copying all protobuf messages that pass through the client.
 // This is mainly useful to wrap the {{.InmemTypeName}} client to insulate users of that
@@ -41,10 +62,27 @@ type {{.CloningClientTypeName}} struct {
    {{.ClientTypeName}}
 }
 
-func New{{.CloningClientTypeName}}(client {{.ClientTypeName}}) {{.CloningClientTypeName}} {
+func New{{.CloningClientTypeName}}(client {{.ClientTypeName}}) {{.ClientTypeName}} {
+   if cloner, ok := client.(Is{{.CloningClientTypeName}}); ok && cloner.Is{{.CloningClientTypeName}}() {
+      // prevent a double clone if the underlying client is already the cloning client.
+      return client
+   }
+   
+   if inmem, ok := client.(Is{{.InmemTypeName}}); !ok || !inmem.Is{{.InmemTypeName}}() {
+      // when not using the in-mem transport we can assume that protobuf serialization and deserialization
+      // is already occurring and prevent wrapping.
+      return client
+   }
+
    return {{.CloningClientTypeName}}{
       {{.ClientTypeName}}: client,
    }
+}
+
+// Is{{.CloningClientTypeName}} implements the Is{{.CloningClientTypeName}} interface. This
+// is only used to detect wrapped clients that would be double cloning data and prevent that.
+func (c {{.CloningClientTypeName}}) Is{{.CloningClientTypeName}}() bool {
+   return true
 }
 
 {{ range $method := .UnaryMethods }}

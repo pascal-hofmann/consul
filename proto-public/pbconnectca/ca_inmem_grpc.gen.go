@@ -25,10 +25,23 @@ type InmemConnectCAServiceClient struct {
 	srv ConnectCAServiceServer
 }
 
+// isInmemConnectCAServiceClient is an interface that can be used to detect that a
+// ConnectCAServiceClient is actually using the in-memory transport.
+type IsInmemConnectCAServiceClient interface {
+	IsInmemConnectCAServiceClient() bool
+}
+
 func NewInmemConnectCAServiceClient(srv ConnectCAServiceServer) (ConnectCAServiceClient, error) {
 	return &InmemConnectCAServiceClient{
 		srv: srv,
 	}, nil
+}
+
+// IsInmemConnectCAServiceClient implements the IsInmemConnectCAServiceClient interface. This
+// can be used to detect that the in-memory transport is in use and alter
+// behavior accordingly.
+func (c InmemConnectCAServiceClient) IsInmemConnectCAServiceClient() bool {
+	return true
 }
 
 func (c *InmemConnectCAServiceClient) Sign(ctx context.Context, in *SignRequest, opts ...grpc.CallOption) (*SignResponse, error) {
@@ -61,6 +74,14 @@ func (c *InmemConnectCAServiceClient) WatchRoots(ctx context.Context, in *WatchR
 // of the grpc client interfaces methods.
 var _ ConnectCAServiceClient = CloningConnectCAServiceClient{}
 
+// IsCloningConnectCAServiceClient is an interface that can be used to detect
+// that a ConnectCAServiceClient is using the in-memory transport and has already
+// been wrapped with a with a CloningConnectCAServiceClient.
+type IsCloningConnectCAServiceClient interface {
+	IsCloningConnectCAServiceClient() bool
+	IsInmemConnectCAServiceClient
+}
+
 // CloningConnectCAServiceClient implements the ConnectCAServiceClient interface by wrapping
 // another implementation and copying all protobuf messages that pass through the client.
 // This is mainly useful to wrap the InmemConnectCAServiceClient client to insulate users of that
@@ -70,10 +91,27 @@ type CloningConnectCAServiceClient struct {
 	ConnectCAServiceClient
 }
 
-func NewCloningConnectCAServiceClient(client ConnectCAServiceClient) CloningConnectCAServiceClient {
+func NewCloningConnectCAServiceClient(client ConnectCAServiceClient) ConnectCAServiceClient {
+	if cloner, ok := client.(IsCloningConnectCAServiceClient); ok && cloner.IsCloningConnectCAServiceClient() {
+		// prevent a double clone if the underlying client is already the cloning client.
+		return client
+	}
+
+	if inmem, ok := client.(IsInmemConnectCAServiceClient); !ok || !inmem.IsInmemConnectCAServiceClient() {
+		// when not using the in-mem transport we can assume that protobuf serialization and deserialization
+		// is already occurring and prevent wrapping.
+		return client
+	}
+
 	return CloningConnectCAServiceClient{
 		ConnectCAServiceClient: client,
 	}
+}
+
+// IsCloningConnectCAServiceClient implements the IsCloningConnectCAServiceClient interface. This
+// is only used to detect wrapped clients that would be double cloning data and prevent that.
+func (c CloningConnectCAServiceClient) IsCloningConnectCAServiceClient() bool {
+	return true
 }
 
 func (c CloningConnectCAServiceClient) Sign(ctx context.Context, in *SignRequest, opts ...grpc.CallOption) (*SignResponse, error) {
@@ -98,5 +136,5 @@ func (c CloningConnectCAServiceClient) WatchRoots(ctx context.Context, in *Watch
 		return nil, err
 	}
 
-	return newCloningStream(st), nil
+	return newCloningStream[*WatchRootsResponse](st), nil
 }

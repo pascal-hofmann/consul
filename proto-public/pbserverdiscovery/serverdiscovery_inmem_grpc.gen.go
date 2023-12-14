@@ -25,10 +25,23 @@ type InmemServerDiscoveryServiceClient struct {
 	srv ServerDiscoveryServiceServer
 }
 
+// isInmemServerDiscoveryServiceClient is an interface that can be used to detect that a
+// ServerDiscoveryServiceClient is actually using the in-memory transport.
+type IsInmemServerDiscoveryServiceClient interface {
+	IsInmemServerDiscoveryServiceClient() bool
+}
+
 func NewInmemServerDiscoveryServiceClient(srv ServerDiscoveryServiceServer) (ServerDiscoveryServiceClient, error) {
 	return &InmemServerDiscoveryServiceClient{
 		srv: srv,
 	}, nil
+}
+
+// IsInmemServerDiscoveryServiceClient implements the IsInmemServerDiscoveryServiceClient interface. This
+// can be used to detect that the in-memory transport is in use and alter
+// behavior accordingly.
+func (c InmemServerDiscoveryServiceClient) IsInmemServerDiscoveryServiceClient() bool {
+	return true
 }
 
 func (c *InmemServerDiscoveryServiceClient) WatchServers(ctx context.Context, in *WatchServersRequest, opts ...grpc.CallOption) (ServerDiscoveryService_WatchServersClient, error) {
@@ -48,6 +61,14 @@ func (c *InmemServerDiscoveryServiceClient) WatchServers(ctx context.Context, in
 // of the grpc client interfaces methods.
 var _ ServerDiscoveryServiceClient = CloningServerDiscoveryServiceClient{}
 
+// IsCloningServerDiscoveryServiceClient is an interface that can be used to detect
+// that a ServerDiscoveryServiceClient is using the in-memory transport and has already
+// been wrapped with a with a CloningServerDiscoveryServiceClient.
+type IsCloningServerDiscoveryServiceClient interface {
+	IsCloningServerDiscoveryServiceClient() bool
+	IsInmemServerDiscoveryServiceClient
+}
+
 // CloningServerDiscoveryServiceClient implements the ServerDiscoveryServiceClient interface by wrapping
 // another implementation and copying all protobuf messages that pass through the client.
 // This is mainly useful to wrap the InmemServerDiscoveryServiceClient client to insulate users of that
@@ -57,10 +78,27 @@ type CloningServerDiscoveryServiceClient struct {
 	ServerDiscoveryServiceClient
 }
 
-func NewCloningServerDiscoveryServiceClient(client ServerDiscoveryServiceClient) CloningServerDiscoveryServiceClient {
+func NewCloningServerDiscoveryServiceClient(client ServerDiscoveryServiceClient) ServerDiscoveryServiceClient {
+	if cloner, ok := client.(IsCloningServerDiscoveryServiceClient); ok && cloner.IsCloningServerDiscoveryServiceClient() {
+		// prevent a double clone if the underlying client is already the cloning client.
+		return client
+	}
+
+	if inmem, ok := client.(IsInmemServerDiscoveryServiceClient); !ok || !inmem.IsInmemServerDiscoveryServiceClient() {
+		// when not using the in-mem transport we can assume that protobuf serialization and deserialization
+		// is already occurring and prevent wrapping.
+		return client
+	}
+
 	return CloningServerDiscoveryServiceClient{
 		ServerDiscoveryServiceClient: client,
 	}
+}
+
+// IsCloningServerDiscoveryServiceClient implements the IsCloningServerDiscoveryServiceClient interface. This
+// is only used to detect wrapped clients that would be double cloning data and prevent that.
+func (c CloningServerDiscoveryServiceClient) IsCloningServerDiscoveryServiceClient() bool {
+	return true
 }
 
 func (c CloningServerDiscoveryServiceClient) WatchServers(ctx context.Context, in *WatchServersRequest, opts ...grpc.CallOption) (ServerDiscoveryService_WatchServersClient, error) {
@@ -70,5 +108,5 @@ func (c CloningServerDiscoveryServiceClient) WatchServers(ctx context.Context, i
 		return nil, err
 	}
 
-	return newCloningStream(st), nil
+	return newCloningStream[*WatchServersResponse](st), nil
 }

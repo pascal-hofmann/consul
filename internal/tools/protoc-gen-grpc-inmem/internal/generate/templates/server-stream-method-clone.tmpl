@@ -5,5 +5,5 @@ func (c {{.CloningClientTypeName}}) {{.Method.GoName}}(ctx context.Context, in *
       return nil, err
    }
    
-   return newCloningStream(st), nil
+   return newCloningStream[*{{.Method.Output.GoIdent.GoName}}](st), nil
 }
