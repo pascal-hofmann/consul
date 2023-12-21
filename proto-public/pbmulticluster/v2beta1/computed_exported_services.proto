@@ -16,10 +16,10 @@ message ComputedExportedServices {
 
 message ComputedExportedService {
   hashicorp.consul.resource.Reference target_ref = 1;
-  repeated ComputedExportedServicesConsumer consumers = 2;
+  repeated ComputedExportedServiceConsumer consumers = 2;
 }
 
-message ComputedExportedServicesConsumer {
+message ComputedExportedServiceConsumer {
   // no sameness group
   oneof consumer_tenancy {
     string peer = 3;
