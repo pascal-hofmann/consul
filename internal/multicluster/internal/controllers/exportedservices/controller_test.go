@@ -64,7 +64,7 @@ func (suite *controllerSuite) TestReconcile_DeleteOldCES_NoExportedServices() {
 
 	suite.runTestCaseWithTenancies(func(tenancy *pbresource.Tenancy) {
 		oldCESData := &pbmulticluster.ComputedExportedServices{
-			Consumers: []*pbmulticluster.ComputedExportedService{
+			Services: []*pbmulticluster.ComputedExportedService{
 				{
 					TargetRef: &pbresource.Reference{
 						Type:    pbcatalog.ServiceType,
@@ -79,7 +79,7 @@ func (suite *controllerSuite) TestReconcile_DeleteOldCES_NoExportedServices() {
 		}
 
 		if suite.isEnterprise {
-			oldCESData.Consumers[0].Consumers = append(oldCESData.Consumers[0].Consumers, suite.constructConsumer("peer-n", "partition"))
+			oldCESData.Services[0].Consumers = append(oldCESData.Services[0].Consumers, suite.constructConsumer("peer-n", "partition"))
 		}
 
 		oldCES := rtest.Resource(pbmulticluster.ComputedExportedServicesType, "global").
@@ -102,7 +102,7 @@ func (suite *controllerSuite) TestReconcile_DeleteOldCES_NoMatchingServices() {
 
 	suite.runTestCaseWithTenancies(func(tenancy *pbresource.Tenancy) {
 		oldCESData := &pbmulticluster.ComputedExportedServices{
-			Consumers: []*pbmulticluster.ComputedExportedService{
+			Services: []*pbmulticluster.ComputedExportedService{
 				{
 					TargetRef: &pbresource.Reference{
 						Type:    pbcatalog.ServiceType,
@@ -117,7 +117,7 @@ func (suite *controllerSuite) TestReconcile_DeleteOldCES_NoMatchingServices() {
 		}
 
 		if suite.isEnterprise {
-			oldCESData.Consumers[0].Consumers = append(oldCESData.Consumers[0].Consumers, suite.constructConsumer("part-n", "partition"))
+			oldCESData.Services[0].Consumers = append(oldCESData.Services[0].Consumers, suite.constructConsumer("part-n", "partition"))
 		}
 
 		oldCES := rtest.Resource(pbmulticluster.ComputedExportedServicesType, "global").
@@ -165,7 +165,7 @@ func (suite *controllerSuite) TestReconcile_SkipWritingNewCES() {
 
 	suite.runTestCaseWithTenancies(func(tenancy *pbresource.Tenancy) {
 		oldCESData := &pbmulticluster.ComputedExportedServices{
-			Consumers: []*pbmulticluster.ComputedExportedService{
+			Services: []*pbmulticluster.ComputedExportedService{
 				{
 					TargetRef: &pbresource.Reference{
 						Type:    pbcatalog.ServiceType,
@@ -180,7 +180,7 @@ func (suite *controllerSuite) TestReconcile_SkipWritingNewCES() {
 		}
 
 		if suite.isEnterprise {
-			oldCESData.Consumers[0].Consumers = append(oldCESData.Consumers[0].Consumers, suite.constructConsumer("part-n", "partition"))
+			oldCESData.Services[0].Consumers = append(oldCESData.Services[0].Consumers, suite.constructConsumer("part-n", "partition"))
 		}
 
 		oldCES := rtest.Resource(pbmulticluster.ComputedExportedServicesType, "global").
@@ -280,7 +280,7 @@ func (suite *controllerSuite) TestReconcile_ComputeCES() {
 		var expectedCES *pbmulticluster.ComputedExportedServices
 		if suite.isEnterprise {
 			expectedCES = &pbmulticluster.ComputedExportedServices{
-				Consumers: []*pbmulticluster.ComputedExportedService{
+				Services: []*pbmulticluster.ComputedExportedService{
 					{
 						TargetRef: &pbresource.Reference{
 							Type:    pbcatalog.ServiceType,
@@ -322,7 +322,7 @@ func (suite *controllerSuite) TestReconcile_ComputeCES() {
 			}
 		} else {
 			expectedCES = &pbmulticluster.ComputedExportedServices{
-				Consumers: []*pbmulticluster.ComputedExportedService{
+				Services: []*pbmulticluster.ComputedExportedService{
 					{
 						TargetRef: &pbresource.Reference{
 							Type:    pbcatalog.ServiceType,
@@ -759,7 +759,7 @@ func (suite *controllerSuite) writePartitionedExportedService(name string, tenan
 func (suite *controllerSuite) constructConsumer(name, consumerType string) *pbmulticluster.ComputedExportedServiceConsumer {
 	if consumerType == "peer" {
 		return &pbmulticluster.ComputedExportedServiceConsumer{
-			ConsumerTenancy: &pbmulticluster.ComputedExportedServiceConsumer_Peer{
+			Tenancy: &pbmulticluster.ComputedExportedServiceConsumer_Peer{
 				Peer: name,
 			},
 		}
@@ -770,7 +770,7 @@ func (suite *controllerSuite) constructConsumer(name, consumerType string) *pbmu
 	}
 
 	return &pbmulticluster.ComputedExportedServiceConsumer{
-		ConsumerTenancy: &pbmulticluster.ComputedExportedServiceConsumer_Partition{
+		Tenancy: &pbmulticluster.ComputedExportedServiceConsumer_Partition{
 			Partition: name,
 		},
 	}
@@ -792,9 +792,9 @@ func constructComputedExportedService(ref *pbresource.Reference, consumers []*pb
 	}
 }
 
-func constructComputedExportedServices(consumers ...*pbmulticluster.ComputedExportedService) *pbmulticluster.ComputedExportedServices {
+func constructComputedExportedServices(services ...*pbmulticluster.ComputedExportedService) *pbmulticluster.ComputedExportedServices {
 	return &pbmulticluster.ComputedExportedServices{
-		Consumers: consumers,
+		Services: services,
 	}
 }
 

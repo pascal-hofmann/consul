@@ -21,7 +21,7 @@ func computedExportedServicesWithPartition(partitionName string) *pbmulticluster
 		{
 			Consumers: []*pbmulticluster.ComputedExportedServiceConsumer{
 				{
-					ConsumerTenancy: &pbmulticluster.ComputedExportedServiceConsumer_Partition{
+					Tenancy: &pbmulticluster.ComputedExportedServiceConsumer_Partition{
 						Partition: partitionName,
 					},
 				},
@@ -38,7 +38,7 @@ func computedExportedServicesWithPeer(peerName string) *pbmulticluster.ComputedE
 		{
 			Consumers: []*pbmulticluster.ComputedExportedServiceConsumer{
 				{
-					ConsumerTenancy: &pbmulticluster.ComputedExportedServiceConsumer_Peer{
+					Tenancy: &pbmulticluster.ComputedExportedServiceConsumer_Peer{
 						Peer: peerName,
 					},
 				},
