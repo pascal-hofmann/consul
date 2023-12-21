@@ -260,7 +260,7 @@ func (b *exportedServicesBuilder) build() *pbmulticluster.ComputedExportedServic
 
 		for _, peer := range sortKeys(svc.peers) {
 			consumers = append(consumers, &pbmulticluster.ComputedExportedServiceConsumer{
-				ConsumerTenancy: &pbmulticluster.ComputedExportedServiceConsumer_Peer{
+				Tenancy: &pbmulticluster.ComputedExportedServiceConsumer_Peer{
 					Peer: peer,
 				},
 			})
@@ -268,7 +268,7 @@ func (b *exportedServicesBuilder) build() *pbmulticluster.ComputedExportedServic
 
 		for _, partition := range sortKeys(svc.partitions) {
 			consumers = append(consumers, &pbmulticluster.ComputedExportedServiceConsumer{
-				ConsumerTenancy: &pbmulticluster.ComputedExportedServiceConsumer_Partition{
+				Tenancy: &pbmulticluster.ComputedExportedServiceConsumer_Partition{
 					Partition: partition,
 				},
 			})

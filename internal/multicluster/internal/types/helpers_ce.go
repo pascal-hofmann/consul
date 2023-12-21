@@ -38,7 +38,7 @@ func ValidateComputedExportedServicesEnterprise(computedExportedServices *pbmult
 
 	for indx, service := range computedExportedServices.GetServices() {
 		for _, consumer := range service.GetConsumers() {
-			switch consumer.GetConsumerTenancy().(type) {
+			switch consumer.GetTenancy().(type) {
 			case *pbmulticluster.ComputedExportedServiceConsumer_Partition:
 				merr = multierror.Append(merr, resource.ErrInvalidListElement{
 					Name:    "partition",

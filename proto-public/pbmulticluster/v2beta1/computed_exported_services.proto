@@ -21,7 +21,7 @@ message ComputedExportedService {
 
 message ComputedExportedServiceConsumer {
   // no sameness group
-  oneof consumer_tenancy {
+  oneof tenancy {
     string peer = 3;
     string partition = 4;
   }
