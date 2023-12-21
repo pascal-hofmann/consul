@@ -11,7 +11,7 @@ import "pbresource/resource.proto";
 message ComputedExportedServices {
   option (hashicorp.consul.resource.spec) = {scope: SCOPE_PARTITION};
 
-  repeated ComputedExportedService consumers = 1;
+  repeated ComputedExportedService services = 1;
 }
 
 message ComputedExportedService {
