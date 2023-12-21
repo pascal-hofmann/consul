@@ -17,11 +17,11 @@ import (
 )
 
 func computedExportedServicesWithPartition(partitionName string) *pbmulticluster.ComputedExportedServices {
-	consumers := []*pbmulticluster.ComputedExportedService{
+	services := []*pbmulticluster.ComputedExportedService{
 		{
-			Consumers: []*pbmulticluster.ComputedExportedServicesConsumer{
+			Consumers: []*pbmulticluster.ComputedExportedServiceConsumer{
 				{
-					ConsumerTenancy: &pbmulticluster.ComputedExportedServicesConsumer_Partition{
+					ConsumerTenancy: &pbmulticluster.ComputedExportedServiceConsumer_Partition{
 						Partition: partitionName,
 					},
 				},
@@ -29,16 +29,16 @@ func computedExportedServicesWithPartition(partitionName string) *pbmulticluster
 		},
 	}
 	return &pbmulticluster.ComputedExportedServices{
-		Consumers: consumers,
+		Services: services,
 	}
 }
 
 func computedExportedServicesWithPeer(peerName string) *pbmulticluster.ComputedExportedServices {
-	consumers := []*pbmulticluster.ComputedExportedService{
+	services := []*pbmulticluster.ComputedExportedService{
 		{
-			Consumers: []*pbmulticluster.ComputedExportedServicesConsumer{
+			Consumers: []*pbmulticluster.ComputedExportedServiceConsumer{
 				{
-					ConsumerTenancy: &pbmulticluster.ComputedExportedServicesConsumer_Peer{
+					ConsumerTenancy: &pbmulticluster.ComputedExportedServiceConsumer_Peer{
 						Peer: peerName,
 					},
 				},
@@ -46,7 +46,7 @@ func computedExportedServicesWithPeer(peerName string) *pbmulticluster.ComputedE
 		},
 	}
 	return &pbmulticluster.ComputedExportedServices{
-		Consumers: consumers,
+		Services: services,
 	}
 }
 
