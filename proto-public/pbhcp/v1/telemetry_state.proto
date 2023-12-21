@@ -7,20 +7,33 @@ import "pbresource/annotations.proto";
 message TelemetryState {
   option (hashicorp.consul.resource.spec) = {scope: SCOPE_CLUSTER};
 
+  message MetricsState {
+    // Endpoint is the OTLP endpoint to which metrics are pushed.
+    string endpoint = 1;
+
+    // Include List is a list of regexp strings that limit the metrics pushed from consul-dataplane to the HCP telemetry endpoint.
+    repeated string include_list = 2;
+
+    // Disabled is true if no metrics should be pushed from consul-dataplane to the HCP telemetry endpoint.
+    bool disabled = 3;
+
+  // Labels are added to all metrics pushed from consul-dataplane to the HCP telemetry endpoint.
+    map<string,string> labels = 4;
+  }
+
+  // Resource ID is the ID of the resource in HCP. Eg "organization/de9edc98-06f2-45b3-96ba-e4b0ced62717/project/a2c4c2d9-0087-4a1b-a9d6-b6030d55ea5c/hashicorp.consul.global-network-manager.cluster/cluster"
   string resource_id = 1;
+
+  // Client ID is the client id used to authenticate to the HCP API.
   string client_id = 2;
+
+  // Client Secret is the client secret used to authenticate to the HCP API.
   string client_secret = 3;
-  string endpoint = 4;
-  map<string,string> labels = 5;
-  MetricsState metrics = 6;
-  
+
   // Auth Endpoint is the endpoint against which client id and secret are exchanged for tokens
   // to call the API. In all cases, except development, this is https://auth.idp.hashicorp.com.
-  string auth_endpoint = 7;
-}
+  string auth_endpoint = 4;
 
-message MetricsState {
-  string endpoint = 1;
-  repeated string include_list = 2;
-  bool disabled = 3;
+  // MetricsState is the configuration for metrics pushed from consul-dataplane to the HCP telemetry endpoint.
+  MetricsState metrics_state = 5;
 }
