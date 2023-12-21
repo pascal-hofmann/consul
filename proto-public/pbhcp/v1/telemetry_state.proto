@@ -13,6 +13,10 @@ message TelemetryState {
   string endpoint = 4;
   map<string,string> labels = 5;
   MetricsState metrics = 6;
+  
+  // Auth Endpoint is the endpoint against which client id and secret are exchanged for tokens
+  // to call the API. In all cases, except development, this is https://auth.idp.hashicorp.com.
+  string auth_endpoint = 7;
 }
 
 message MetricsState {
