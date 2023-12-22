@@ -57,5 +57,12 @@ func validateTelemetryState(res *DecodedTelemetryState) error {
 		})
 	}
 
+	if res.Data.AuthEndpoint == "" {
+		err = multierror.Append(err, resource.ErrInvalidField{
+			Name:    "auth_endpoint",
+			Wrapped: resource.ErrMissing,
+		})
+	}
+
 	return err
 }
