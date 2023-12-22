@@ -6,6 +6,7 @@ package controllers
 import (
 	"github.com/hashicorp/consul/internal/controller"
 	"github.com/hashicorp/consul/internal/hcp/internal/controllers/link"
+	"github.com/hashicorp/consul/internal/hcp/internal/controllers/telemetrystate"
 )
 
 type Dependencies struct {
@@ -15,6 +16,11 @@ type Dependencies struct {
 
 func Register(mgr *controller.Manager, deps Dependencies) {
 	mgr.Register(link.LinkController(
+		deps.ResourceApisEnabled,
+		deps.OverrideResourceApisEnabledCheck,
+	))
+
+	mgr.Register(telemetrystate.TelemetryStateController(
 		deps.ResourceApisEnabled,
 		deps.OverrideResourceApisEnabledCheck,
 	))
