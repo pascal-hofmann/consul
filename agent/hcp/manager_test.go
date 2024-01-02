@@ -9,6 +9,7 @@ import (
 	"time"
 
 	hcpclient "github.com/hashicorp/consul/agent/hcp/client"
+	"github.com/hashicorp/consul/agent/hcp/config"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -23,10 +24,16 @@ func TestManager_Run(t *testing.T) {
 	updateCh := make(chan struct{}, 1)
 	client.EXPECT().PushServerStatus(mock.Anything, &hcpclient.ServerStatus{ID: t.Name()}).Return(nil).Once()
 
-	telemetryProvider := &hcpProviderImpl{}
+	telemetryProvider := &hcpProviderImpl{
+		httpCfg: &httpCfg{},
+		logger:  hclog.New(&hclog.LoggerOptions{Output: io.Discard}),
+	}
 
 	mgr := NewManager(ManagerConfig{
-		Client:            client,
+		Client: client,
+		CloudConfig: config.CloudConfig{
+			ResourceID: "organization/05bdeb68-7013-6654-18c7-0868b1303017/project/d1862367-33ec-921e-af3a-ea860352b650/hashicorp.consul.global-network-manager.cluster/test",
+		},
 		Logger:            hclog.New(&hclog.LoggerOptions{Output: io.Discard}),
 		StatusFn:          statusF,
 		TelemetryProvider: telemetryProvider,
@@ -46,6 +53,8 @@ func TestManager_Run(t *testing.T) {
 	cancel()
 	client.AssertExpectations(t)
 	require.Equal(t, client, telemetryProvider.hcpClient)
+	require.NotNil(t, telemetryProvider.GetHeader())
+	require.NotNil(t, telemetryProvider.GetHTTPClient())
 }
 
 func TestManager_SendUpdate(t *testing.T) {
