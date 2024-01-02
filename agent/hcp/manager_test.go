@@ -22,10 +22,14 @@ func TestManager_Run(t *testing.T) {
 	}
 	updateCh := make(chan struct{}, 1)
 	client.EXPECT().PushServerStatus(mock.Anything, &hcpclient.ServerStatus{ID: t.Name()}).Return(nil).Once()
+
+	telemetryProvider := &hcpProviderImpl{}
+
 	mgr := NewManager(ManagerConfig{
-		Client:   client,
-		Logger:   hclog.New(&hclog.LoggerOptions{Output: io.Discard}),
-		StatusFn: statusF,
+		Client:            client,
+		Logger:            hclog.New(&hclog.LoggerOptions{Output: io.Discard}),
+		StatusFn:          statusF,
+		TelemetryProvider: telemetryProvider,
 	})
 	mgr.testUpdateSent = updateCh
 	ctx, cancel := context.WithCancel(context.Background())
@@ -41,6 +45,7 @@ func TestManager_Run(t *testing.T) {
 	// Make sure after manager has stopped no more statuses are pushed.
 	cancel()
 	client.AssertExpectations(t)
+	require.Equal(t, client, telemetryProvider.hcpClient)
 }
 
 func TestManager_SendUpdate(t *testing.T) {
