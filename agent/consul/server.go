@@ -954,6 +954,7 @@ func (s *Server) registerControllers(deps Deps, proxyUpdater ProxyUpdater) error
 	hcpctl.RegisterControllers(s.controllerManager, hcpctl.ControllerDependencies{
 		ResourceApisEnabled:              s.useV2Resources,
 		OverrideResourceApisEnabledCheck: overrideResourceApisEnabledCheck,
+		CloudConfig:                      deps.HCP.Config,
 	})
 
 	// When not enabled, the v1 tenancy bridge is used by default.

@@ -4,11 +4,13 @@
 package controllers
 
 import (
+	"github.com/hashicorp/consul/agent/hcp/config"
 	"github.com/hashicorp/consul/internal/controller"
 	"github.com/hashicorp/consul/internal/hcp/internal/controllers/link"
 )
 
 type Dependencies struct {
+	CloudConfig                      config.CloudConfig
 	ResourceApisEnabled              bool
 	OverrideResourceApisEnabledCheck bool
 }
@@ -17,5 +19,6 @@ func Register(mgr *controller.Manager, deps Dependencies) {
 	mgr.Register(link.LinkController(
 		deps.ResourceApisEnabled,
 		deps.OverrideResourceApisEnabledCheck,
+		deps.CloudConfig,
 	))
 }
