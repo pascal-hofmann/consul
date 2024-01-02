@@ -583,6 +583,7 @@ func NewServer(config *Config, flat Deps, externalGRPCServer *grpc.Server,
 	})
 
 	s.hcpManager = hcp.NewManager(hcp.ManagerConfig{
+		CloudConfig:       s.config.Cloud,
 		Client:            flat.HCP.Client,
 		StatusFn:          s.hcpServerStatus(flat),
 		Logger:            logger.Named("hcp_manager"),
