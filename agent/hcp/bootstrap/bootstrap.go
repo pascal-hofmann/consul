@@ -22,6 +22,7 @@ import (
 	hcpclient "github.com/hashicorp/consul/agent/hcp/client"
 	"github.com/hashicorp/consul/lib"
 	"github.com/hashicorp/consul/lib/retry"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-uuid"
 )
 
@@ -46,6 +47,26 @@ type UI interface {
 	Warn(string)
 	Info(string)
 	Error(string)
+}
+
+type loggerUI struct {
+	logger hclog.Logger
+}
+
+func (l loggerUI) Output(s string) {
+	l.logger.Info(s)
+}
+
+func (l loggerUI) Warn(s string) {
+	l.logger.Warn(s)
+}
+
+func (l loggerUI) Info(s string) {
+	l.logger.Info(s)
+}
+
+func (l loggerUI) Error(s string) {
+	l.logger.Error(s)
 }
 
 // RawBootstrapConfig contains the Consul config as a raw JSON string and the management token
@@ -73,7 +94,7 @@ func FetchBootstrapConfig(ctx context.Context, client hcpclient.Client, dataDir 
 
 		resp, err := client.FetchBootstrap(reqCtx)
 		if err != nil {
-			ui.Error(fmt.Sprintf("Error: failed to fetch bootstrap config from HCP, will retry in %s: %s",
+			ui.Error(fmt.Sprintf("failed to fetch bootstrap config from HCP, will retry in %s: %s",
 				w.NextWait().Round(time.Second), err))
 			if err := w.Wait(ctx); err != nil {
 				return nil, err
@@ -442,4 +463,26 @@ func validateTLSCerts(cert, key string, caCerts []string) error {
 		}
 	}
 	return nil
+}
+
+// LoadManagementToken returns the management token, either by loading it from the persisted
+// token config file or by fetching it from HCP if the token file does not exist.
+func LoadManagementToken(ctx context.Context, logger hclog.Logger, client hcpclient.Client, dataDir string) (string, error) {
+	hcpCfgDir := filepath.Join(dataDir, SubDir)
+	token, err := loadManagementToken(hcpCfgDir)
+
+	if err != nil {
+		logger.Debug("fetching configuration from HCP")
+		var err error
+		cfg, err := FetchBootstrapConfig(ctx, client, dataDir, &loggerUI{logger: logger})
+		if err != nil {
+			return "", fmt.Errorf("failed to fetch bootstrap configuration from HCP: %w", err)
+		}
+		logger.Debug("configuration fetched from HCP and saved on local disk")
+		token = cfg.ManagementToken
+	} else {
+		logger.Debug("loaded HCP configuration from local disk")
+	}
+
+	return token, nil
 }
