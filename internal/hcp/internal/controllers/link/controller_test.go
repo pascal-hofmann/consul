@@ -7,9 +7,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	svctest "github.com/hashicorp/consul/agent/grpc-external/services/resource/testing"
+	"github.com/hashicorp/consul/agent/hcp/client"
 	"github.com/hashicorp/consul/internal/controller"
 	"github.com/hashicorp/consul/internal/hcp/internal/types"
 	"github.com/hashicorp/consul/internal/resource/resourcetest"
@@ -17,6 +20,7 @@ import (
 	pbhcp "github.com/hashicorp/consul/proto-public/pbhcp/v1"
 	"github.com/hashicorp/consul/proto-public/pbresource"
 	"github.com/hashicorp/consul/sdk/testutil"
+	"github.com/hashicorp/go-uuid"
 )
 
 type controllerSuite struct {
@@ -26,7 +30,6 @@ type controllerSuite struct {
 	client *rtest.Client
 	rt     controller.Runtime
 
-	ctl       linkReconciler
 	tenancies []*pbresource.Tenancy
 }
 
@@ -59,7 +62,17 @@ func (suite *controllerSuite) TestController_Ok() {
 	// Run the controller manager
 	mgr := controller.NewManager(suite.client, suite.rt.Logger)
 	dataDir := testutil.TempDir(suite.T(), "test-link-controller")
-	mgr.Register(LinkController(false, false, dataDir))
+
+	mockClient := client.NewMockClient(suite.T())
+	token, err := uuid.GenerateUUID()
+	require.NoError(suite.T(), err)
+	mockClient.EXPECT().FetchBootstrap(mock.Anything).
+		Return(&client.BootstrapConfig{
+			ManagementToken: token,
+			ConsulConfig:    "{}",
+		}, nil).Once()
+
+	mgr.Register(LinkController(Dependencies{false, false, dataDir, mockClient}))
 	mgr.SetRaftLeader(true)
 	go mgr.Run(suite.ctx)
 
@@ -82,7 +95,8 @@ func (suite *controllerSuite) TestControllerResourceApisEnabled_LinkDisabled() {
 	// Run the controller manager
 	mgr := controller.NewManager(suite.client, suite.rt.Logger)
 	dataDir := testutil.TempDir(suite.T(), "test-link-controller")
-	mgr.Register(LinkController(true, false, dataDir))
+	mockClient := client.NewMockClient(suite.T())
+	mgr.Register(LinkController(Dependencies{true, false, dataDir, mockClient}))
 	mgr.SetRaftLeader(true)
 	go mgr.Run(suite.ctx)
 
@@ -105,7 +119,15 @@ func (suite *controllerSuite) TestControllerResourceApisEnabledWithOverride_Link
 	// Run the controller manager
 	mgr := controller.NewManager(suite.client, suite.rt.Logger)
 	dataDir := testutil.TempDir(suite.T(), "test-link-controller")
-	mgr.Register(LinkController(true, true, dataDir))
+	mockClient := client.NewMockClient(suite.T())
+	token, err := uuid.GenerateUUID()
+	require.NoError(suite.T(), err)
+	mockClient.EXPECT().FetchBootstrap(mock.Anything).
+		Return(&client.BootstrapConfig{
+			ManagementToken: token,
+			ConsulConfig:    "{}",
+		}, nil).Once()
+	mgr.Register(LinkController(Dependencies{true, true, dataDir, mockClient}))
 	mgr.SetRaftLeader(true)
 	go mgr.Run(suite.ctx)
 

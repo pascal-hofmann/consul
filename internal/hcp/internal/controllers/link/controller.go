@@ -6,6 +6,9 @@ package link
 import (
 	"context"
 
+	"github.com/hashicorp/consul/agent/hcp/bootstrap"
+	"github.com/hashicorp/consul/agent/hcp/client"
+	"github.com/hashicorp/consul/agent/hcp/config"
 	"github.com/hashicorp/consul/internal/resource"
 	"github.com/hashicorp/consul/proto-public/pbresource"
 	"google.golang.org/grpc/codes"
@@ -15,12 +18,21 @@ import (
 	pbhcp "github.com/hashicorp/consul/proto-public/pbhcp/v1"
 )
 
-func LinkController(resourceApisEnabled bool, overrideResourceApisEnabledCheck bool, dataDir string) *controller.Controller {
+type Dependencies struct {
+	ResourceApisEnabled              bool
+	OverrideResourceApisEnabledCheck bool
+	DataDir                          string
+
+	testHCPClient client.Client
+}
+
+func LinkController(deps Dependencies) *controller.Controller {
 	return controller.NewController("link", pbhcp.LinkType).
 		WithReconciler(&linkReconciler{
-			resourceApisEnabled:              resourceApisEnabled,
-			overrideResourceApisEnabledCheck: overrideResourceApisEnabledCheck,
-			dataDir:                          dataDir,
+			resourceApisEnabled:              deps.ResourceApisEnabled,
+			overrideResourceApisEnabledCheck: deps.OverrideResourceApisEnabledCheck,
+			dataDir:                          deps.DataDir,
+			testHCPClient:                    deps.testHCPClient,
 		})
 }
 
@@ -28,6 +40,8 @@ type linkReconciler struct {
 	resourceApisEnabled              bool
 	overrideResourceApisEnabledCheck bool
 	dataDir                          string
+
+	testHCPClient client.Client
 }
 
 func (r *linkReconciler) Reconcile(ctx context.Context, rt controller.Runtime, req controller.Request) error {
@@ -53,6 +67,33 @@ func (r *linkReconciler) Reconcile(ctx context.Context, rt controller.Runtime, r
 		rt.Logger.Error("error unmarshalling link data", "error", err)
 		return err
 	}
+
+	// Configure an HCP client from the resource
+	var hcpClient client.Client
+	if r.testHCPClient != nil {
+		hcpClient = r.testHCPClient
+	} else {
+		var err error
+		hcpClient, err = client.NewClient(config.CloudConfig{
+			ResourceID:   link.ResourceId,
+			ClientID:     link.ClientId,
+			ClientSecret: link.ClientSecret,
+		})
+		if err != nil {
+			rt.Logger.Error("error creating HCP client", "error", err)
+			// TODO: Set status to failed/errored
+			return err
+		}
+	}
+
+	// Load the management token
+	token, err := bootstrap.LoadManagementToken(ctx, rt.Logger, hcpClient, r.dataDir)
+	if err != nil {
+		rt.Logger.Error("error loading management token", "error", err)
+		// TODO: Set status to failed/errored
+		return err
+	}
+	_ = token // TODO: temporary until we use the token
 
 	var newStatus *pbresource.Status
 	if r.resourceApisEnabled && !r.overrideResourceApisEnabledCheck {

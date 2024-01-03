@@ -8,16 +8,14 @@ import (
 	"github.com/hashicorp/consul/internal/hcp/internal/controllers/link"
 )
 
-type Dependencies struct {
-	ResourceApisEnabled              bool
-	OverrideResourceApisEnabledCheck bool
-	DataDir                          string
-}
+type Dependencies = link.Dependencies
 
 func Register(mgr *controller.Manager, deps Dependencies) {
 	mgr.Register(link.LinkController(
-		deps.ResourceApisEnabled,
-		deps.OverrideResourceApisEnabledCheck,
-		deps.DataDir,
+		link.Dependencies{
+			ResourceApisEnabled:              deps.ResourceApisEnabled,
+			OverrideResourceApisEnabledCheck: deps.OverrideResourceApisEnabledCheck,
+			DataDir:                          deps.DataDir,
+		},
 	))
 }
