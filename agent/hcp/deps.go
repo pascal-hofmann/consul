@@ -21,9 +21,10 @@ type Deps struct {
 	Client   client.Client
 	Provider scada.Provider
 	Sink     metrics.MetricSink
+	DataDir  string
 }
 
-func NewDeps(cfg config.CloudConfig, logger hclog.Logger) (Deps, error) {
+func NewDeps(cfg config.CloudConfig, logger hclog.Logger, dataDir string) (Deps, error) {
 	ctx := context.Background()
 	ctx = hclog.WithContext(ctx, logger)
 
@@ -53,6 +54,7 @@ func NewDeps(cfg config.CloudConfig, logger hclog.Logger) (Deps, error) {
 		Client:   hcpClient,
 		Provider: provider,
 		Sink:     sink,
+		DataDir:  dataDir,
 	}, nil
 }
 

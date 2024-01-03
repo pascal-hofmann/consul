@@ -15,17 +15,19 @@ import (
 	pbhcp "github.com/hashicorp/consul/proto-public/pbhcp/v1"
 )
 
-func LinkController(resourceApisEnabled bool, overrideResourceApisEnabledCheck bool) *controller.Controller {
+func LinkController(resourceApisEnabled bool, overrideResourceApisEnabledCheck bool, dataDir string) *controller.Controller {
 	return controller.NewController("link", pbhcp.LinkType).
 		WithReconciler(&linkReconciler{
 			resourceApisEnabled:              resourceApisEnabled,
 			overrideResourceApisEnabledCheck: overrideResourceApisEnabledCheck,
+			dataDir:                          dataDir,
 		})
 }
 
 type linkReconciler struct {
 	resourceApisEnabled              bool
 	overrideResourceApisEnabledCheck bool
+	dataDir                          string
 }
 
 func (r *linkReconciler) Reconcile(ctx context.Context, rt controller.Runtime, req controller.Request) error {

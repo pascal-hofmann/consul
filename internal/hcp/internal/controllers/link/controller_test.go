@@ -58,7 +58,8 @@ func (suite *controllerSuite) deleteResourceFunc(id *pbresource.ID) func() {
 func (suite *controllerSuite) TestController_Ok() {
 	// Run the controller manager
 	mgr := controller.NewManager(suite.client, suite.rt.Logger)
-	mgr.Register(LinkController(false, false))
+	dataDir := testutil.TempDir(suite.T(), "test-link-controller")
+	mgr.Register(LinkController(false, false, dataDir))
 	mgr.SetRaftLeader(true)
 	go mgr.Run(suite.ctx)
 
@@ -80,7 +81,8 @@ func (suite *controllerSuite) TestController_Ok() {
 func (suite *controllerSuite) TestControllerResourceApisEnabled_LinkDisabled() {
 	// Run the controller manager
 	mgr := controller.NewManager(suite.client, suite.rt.Logger)
-	mgr.Register(LinkController(true, false))
+	dataDir := testutil.TempDir(suite.T(), "test-link-controller")
+	mgr.Register(LinkController(true, false, dataDir))
 	mgr.SetRaftLeader(true)
 	go mgr.Run(suite.ctx)
 
@@ -102,7 +104,8 @@ func (suite *controllerSuite) TestControllerResourceApisEnabled_LinkDisabled() {
 func (suite *controllerSuite) TestControllerResourceApisEnabledWithOverride_LinkNotDisabled() {
 	// Run the controller manager
 	mgr := controller.NewManager(suite.client, suite.rt.Logger)
-	mgr.Register(LinkController(true, true))
+	dataDir := testutil.TempDir(suite.T(), "test-link-controller")
+	mgr.Register(LinkController(true, true, dataDir))
 	mgr.SetRaftLeader(true)
 	go mgr.Run(suite.ctx)
 

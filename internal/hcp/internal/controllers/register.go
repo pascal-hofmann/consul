@@ -11,11 +11,13 @@ import (
 type Dependencies struct {
 	ResourceApisEnabled              bool
 	OverrideResourceApisEnabledCheck bool
+	DataDir                          string
 }
 
 func Register(mgr *controller.Manager, deps Dependencies) {
 	mgr.Register(link.LinkController(
 		deps.ResourceApisEnabled,
 		deps.OverrideResourceApisEnabledCheck,
+		deps.DataDir,
 	))
 }
