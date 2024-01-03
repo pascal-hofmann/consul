@@ -37,7 +37,7 @@ plugins:
   - name: json-shim
     out: .
     opt: paths=source_relative
-  - name: grpc-inmem
+  - name: grpc-clone
     out: .
     opt:
       - paths=source_relative

@@ -6,6 +6,7 @@ package testing
 import (
 	"context"
 
+	"github.com/fullstorydev/grpchan/inprocgrpc"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -176,8 +177,9 @@ func (b *Builder) Run(t testutil.TestingTB) pbresource.ResourceServiceClient {
 	}
 
 	b.serviceImpl = svc.NewServer(config)
-	client, err := pbresource.NewInmemResourceServiceClient(b.serviceImpl)
-	require.NoError(t, err)
+	ch := &inprocgrpc.Channel{}
+	pbresource.RegisterResourceServiceServer(ch, b.serviceImpl)
+	client := pbresource.NewResourceServiceClient(ch)
 
 	if b.cloning {
 		// enable protobuf cloning wrapper

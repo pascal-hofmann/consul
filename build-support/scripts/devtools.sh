@@ -133,7 +133,7 @@ function proto_tools_install {
     
     install_local_protoc_generator "${SOURCE_DIR}/internal/resource/protoc-gen-resource-types"
     
-    install_local_protoc_generator "${SOURCE_DIR}/internal/tools/protoc-gen-grpc-inmem"
+    install_local_protoc_generator "${SOURCE_DIR}/internal/tools/protoc-gen-grpc-clone"
 
     install_local_protoc_generator "${SOURCE_DIR}/internal/resource/protoc-gen-json-shim"
 

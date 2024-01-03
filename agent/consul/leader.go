@@ -350,7 +350,7 @@ func (s *Server) establishLeadership(ctx context.Context) error {
 	}
 
 	if s.useV2Tenancy {
-		if err := s.initTenancy(ctx, s.resourceServiceServer.Backend); err != nil {
+		if err := s.initTenancy(ctx, s.storageBackend); err != nil {
 			return err
 		}
 	}

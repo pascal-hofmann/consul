@@ -16,6 +16,8 @@ type Builder struct {
 
 func NewControllerTestBuilder() *Builder {
 	return &Builder{
+		// disable cloning because we will enable it after passing the non-cloning variant
+		// to the controller manager.
 		serviceBuilder: svctest.NewResourceServiceBuilder().WithCloningDisabled(),
 	}
 }

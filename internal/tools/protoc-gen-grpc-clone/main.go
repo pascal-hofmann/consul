@@ -6,7 +6,7 @@ package main
 import (
 	"flag"
 
-	"github.com/hashicorp/consul/internal/tools/protoc-gen-grpc-inmem/internal/generate"
+	"github.com/hashicorp/consul/internal/tools/protoc-gen-grpc-clone/internal/generate"
 	"google.golang.org/protobuf/compiler/protogen"
 	plugin "google.golang.org/protobuf/types/pluginpb"
 )

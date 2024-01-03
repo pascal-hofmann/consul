@@ -48,8 +48,8 @@ func (g *generator) generate() error {
 	}
 
 	for dir, info := range g.directories {
-		genFile := g.p.NewGeneratedFile(filepath.Join(dir, "inmem_grpc_stream.gen.go"), info.impPath)
-		inmemTemplate.ExecuteTemplate(genFile, "inmem-stream.tmpl", map[string]string{"GoPackage": string(info.pkgName)})
+		genFile := g.p.NewGeneratedFile(filepath.Join(dir, "cloning_stream.pb.go"), info.impPath)
+		cloningTemplate.ExecuteTemplate(genFile, "cloning-stream.tmpl", map[string]string{"GoPackage": string(info.pkgName)})
 	}
 	return nil
 }
@@ -59,20 +59,19 @@ func (g *generator) generateFile(file *protogen.File) error {
 		PackageName: string(file.GoPackageName),
 	}
 
-	filename := file.GeneratedFilenamePrefix + "_inmem_grpc.gen.go"
+	filename := file.GeneratedFilenamePrefix + "_cloning_grpc.pb.go"
 	genFile := g.p.NewGeneratedFile(filename, file.GoImportPath)
 
 	for _, svc := range file.Services {
-		svcTypes := &inmemServiceTypes{
+		svcTypes := &cloningServiceTypes{
 			ClientTypeName:        genFile.QualifiedGoIdent(protogen.GoIdent{GoName: svc.GoName + "Client", GoImportPath: file.GoImportPath}),
 			ServerTypeName:        genFile.QualifiedGoIdent(protogen.GoIdent{GoName: svc.GoName + "Server", GoImportPath: file.GoImportPath}),
-			InmemTypeName:         genFile.QualifiedGoIdent(protogen.GoIdent{GoName: "Inmem" + svc.GoName + "Client", GoImportPath: file.GoImportPath}),
 			CloningClientTypeName: genFile.QualifiedGoIdent(protogen.GoIdent{GoName: "Cloning" + svc.GoName + "Client", GoImportPath: file.GoImportPath}),
 			ServiceName:           svc.GoName,
 		}
 
-		tsvc := inmemService{
-			inmemServiceTypes: svcTypes,
+		tsvc := cloningService{
+			cloningServiceTypes: svcTypes,
 		}
 
 		for _, method := range svc.Methods {
@@ -83,8 +82,8 @@ func (g *generator) generateFile(file *protogen.File) error {
 
 			if method.Desc.IsStreamingServer() {
 				tsvc.ServerStreamMethods = append(tsvc.ServerStreamMethods, &inmemMethod{
-					inmemServiceTypes: svcTypes,
-					Method:            method,
+					cloningServiceTypes: svcTypes,
+					Method:              method,
 				})
 
 				// record that we need to also generate the inmem stream client code
@@ -92,8 +91,8 @@ func (g *generator) generateFile(file *protogen.File) error {
 				g.directories[filepath.Dir(filename)] = pkgInfo{impPath: file.GoImportPath, pkgName: file.GoPackageName}
 			} else {
 				tsvc.UnaryMethods = append(tsvc.UnaryMethods, &inmemMethod{
-					inmemServiceTypes: svcTypes,
-					Method:            method,
+					cloningServiceTypes: svcTypes,
+					Method:              method,
 				})
 			}
 		}
@@ -101,7 +100,7 @@ func (g *generator) generateFile(file *protogen.File) error {
 		tdata.Services = append(tdata.Services, &tsvc)
 	}
 
-	err := inmemTemplate.ExecuteTemplate(genFile, "file.tmpl", &tdata)
+	err := cloningTemplate.ExecuteTemplate(genFile, "file.tmpl", &tdata)
 	if err != nil {
 		return fmt.Errorf("Error rendering template: %w", err)
 	}
@@ -111,34 +110,34 @@ func (g *generator) generateFile(file *protogen.File) error {
 }
 
 type templateData struct {
-	PackageName string
-	Services    []*inmemService
+	PackageName   string
+	Services      []*cloningService
+	UsesStreaming bool
 }
 
-type inmemService struct {
+type cloningService struct {
 	UnaryMethods []*inmemMethod
 	// ClientStreamMethods      []*protogen.Method
 	ServerStreamMethods []*inmemMethod
 	// BidirectionStreamMethods []*protogen.Method
-	*inmemServiceTypes
+	*cloningServiceTypes
 }
 
-type inmemServiceTypes struct {
+type cloningServiceTypes struct {
 	ClientTypeName        string
 	ServerTypeName        string
-	InmemTypeName         string
 	ServiceName           string
 	CloningClientTypeName string
 }
 
 type inmemMethod struct {
 	Method *protogen.Method
-	*inmemServiceTypes
+	*cloningServiceTypes
 }
 
 var (
 	//go:embed templates
 	templates embed.FS
 
-	inmemTemplate = template.Must(template.ParseFS(templates, "templates/*"))
+	cloningTemplate = template.Must(template.ParseFS(templates, "templates/*"))
 )
