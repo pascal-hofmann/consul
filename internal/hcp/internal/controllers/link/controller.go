@@ -68,6 +68,16 @@ func (r *linkReconciler) Reconcile(ctx context.Context, rt controller.Runtime, r
 		return err
 	}
 
+	// Check if linking feature is disabled
+	if r.resourceApisEnabled && !r.overrideResourceApisEnabledCheck {
+		disabledStatus := &pbresource.Status{
+			ObservedGeneration: res.Generation,
+			Conditions:         []*pbresource.Condition{ConditionDisabled},
+		}
+		updateStatus(ctx, rt, res, disabledStatus)
+		return nil
+	}
+
 	// Configure an HCP client from the resource
 	var hcpClient client.Client
 	if r.testHCPClient != nil {
@@ -81,7 +91,11 @@ func (r *linkReconciler) Reconcile(ctx context.Context, rt controller.Runtime, r
 		})
 		if err != nil {
 			rt.Logger.Error("error creating HCP client", "error", err)
-			// TODO: Set status to failed/errored
+			newStatus := &pbresource.Status{
+				ObservedGeneration: res.Generation,
+				Conditions:         []*pbresource.Condition{ConditionFailed},
+			}
+			updateStatus(ctx, rt, res, newStatus)
 			return err
 		}
 	}
@@ -90,36 +104,35 @@ func (r *linkReconciler) Reconcile(ctx context.Context, rt controller.Runtime, r
 	token, err := bootstrap.LoadManagementToken(ctx, rt.Logger, hcpClient, r.dataDir)
 	if err != nil {
 		rt.Logger.Error("error loading management token", "error", err)
-		// TODO: Set status to failed/errored
+		newStatus := &pbresource.Status{
+			ObservedGeneration: res.Generation,
+			Conditions:         []*pbresource.Condition{ConditionFailed},
+		}
+		updateStatus(ctx, rt, res, newStatus)
 		return err
 	}
 	_ = token // TODO: temporary until we use the token
 
-	var newStatus *pbresource.Status
-	if r.resourceApisEnabled && !r.overrideResourceApisEnabledCheck {
-		newStatus = &pbresource.Status{
-			ObservedGeneration: res.Generation,
-			Conditions:         []*pbresource.Condition{ConditionDisabled},
-		}
-	} else {
-		newStatus = &pbresource.Status{
-			ObservedGeneration: res.Generation,
-			Conditions:         []*pbresource.Condition{ConditionLinked(link.ResourceId)},
-		}
+	successStatus := &pbresource.Status{
+		ObservedGeneration: res.Generation,
+		Conditions:         []*pbresource.Condition{ConditionLinked(link.ResourceId)},
 	}
+	updateStatus(ctx, rt, res, successStatus)
 
+	return nil
+}
+
+func updateStatus(ctx context.Context, rt controller.Runtime, res *pbresource.Resource, newStatus *pbresource.Status) {
 	if resource.EqualStatus(res.Status[StatusKey], newStatus, false) {
-		return nil
+		return
 	}
-	_, err = rt.Client.WriteStatus(ctx, &pbresource.WriteStatusRequest{
+	_, err := rt.Client.WriteStatus(ctx, &pbresource.WriteStatusRequest{
 		Id:     res.Id,
 		Key:    StatusKey,
 		Status: newStatus,
 	})
-
 	if err != nil {
-		return err
+		rt.Logger.Error("error updating link resource status", "error", err)
+		return
 	}
-
-	return nil
 }

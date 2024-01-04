@@ -15,9 +15,11 @@ const (
 	StatusLinked                         = "linked"
 	LinkedReason                         = "SUCCESS"
 	DisabledReasonV2ResourcesUnsupported = "DISABLED_V2_RESOURCES_UNSUPPORTED"
+	FailedReason                         = "FAILED"
 
 	LinkedMessageFormat                = "Successfully linked to cluster '%s'"
 	DisabledResourceAPIsEnabledMessage = "Link is disabled because resource-apis are enabled"
+	FailedMessage                      = "Failed to link due to unexpected error"
 )
 
 var (
@@ -26,6 +28,12 @@ var (
 		State:   pbresource.Condition_STATE_FALSE,
 		Reason:  DisabledReasonV2ResourcesUnsupported,
 		Message: DisabledResourceAPIsEnabledMessage,
+	}
+	ConditionFailed = &pbresource.Condition{
+		Type:    StatusLinked,
+		State:   pbresource.Condition_STATE_FALSE,
+		Reason:  FailedReason,
+		Message: FailedMessage,
 	}
 )
 
