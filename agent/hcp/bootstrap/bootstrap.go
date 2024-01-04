@@ -13,6 +13,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +26,8 @@ import (
 	"github.com/hashicorp/consul/lib/retry"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-uuid"
+	hcpgnm "github.com/hashicorp/hcp-sdk-go/clients/cloud-global-network-manager-service/preview/2022-02-15/client/global_network_manager_service"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -76,8 +80,9 @@ type RawBootstrapConfig struct {
 	ManagementToken string
 }
 
-// fetchBootstrapConfig will fetch boostrap configuration from remote servers and persist it to disk.
-// It will retry until successful or a terminal error condition is found (e.g. permission denied).
+// fetchBootstrapConfig will fetch bootstrap configuration from remote servers and persist it to disk.
+// It will retry until successful, a terminal error condition is found (e.g. permission denied), or the
+// context is cancelled.
 func FetchBootstrapConfig(ctx context.Context, client hcpclient.Client, dataDir string, ui UI) (*RawBootstrapConfig, error) {
 	w := retry.Waiter{
 		MinWait: 1 * time.Second,
@@ -94,6 +99,32 @@ func FetchBootstrapConfig(ctx context.Context, client hcpclient.Client, dataDir 
 
 		resp, err := client.FetchBootstrap(reqCtx)
 		if err != nil {
+			// Check oath2 token errors
+			urlErr, ok := err.(*url.Error)
+			if ok {
+				oauthErr, ok := errors.Unwrap(urlErr.Err).(*oauth2.RetrieveError)
+				if ok {
+					switch oauthErr.Response.StatusCode {
+					case http.StatusUnauthorized:
+						return nil, ErrFetchBootstrapUnauthorized
+					default:
+						// continue to retry other errors
+					}
+				}
+			}
+			// Check agent bootstrap config errors
+			e, ok := err.(*hcpgnm.AgentBootstrapConfigDefault)
+			if ok {
+				// Don't retry on certain errors
+				switch e.Code() {
+				case http.StatusUnauthorized:
+					return nil, ErrFetchBootstrapUnauthorized
+				case http.StatusForbidden:
+					return nil, ErrFetchBootstrapForbidden
+				default:
+					// continue to retry other errors
+				}
+			}
 			ui.Error(fmt.Sprintf("failed to fetch bootstrap config from HCP, will retry in %s: %s",
 				w.NextWait().Round(time.Second), err))
 			if err := w.Wait(ctx); err != nil {
@@ -476,12 +507,13 @@ func LoadManagementToken(ctx context.Context, logger hclog.Logger, client hcpcli
 		var err error
 		cfg, err := FetchBootstrapConfig(ctx, client, dataDir, &loggerUI{logger: logger})
 		if err != nil {
-			return "", fmt.Errorf("failed to fetch bootstrap configuration from HCP: %w", err)
+			logger.Error("failed to fetch bootstrap configuration from HCP", "error", err)
+			return "", err
 		}
 		logger.Debug("configuration fetched from HCP and saved on local disk")
 		token = cfg.ManagementToken
 	} else {
-		logger.Debug("loaded HCP configuration from local disk")
+		logger.Trace("loaded HCP configuration from local disk")
 	}
 
 	return token, nil

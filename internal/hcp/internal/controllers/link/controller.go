@@ -5,6 +5,8 @@ package link
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"github.com/hashicorp/consul/agent/hcp/bootstrap"
 	"github.com/hashicorp/consul/agent/hcp/client"
@@ -96,22 +98,31 @@ func (r *linkReconciler) Reconcile(ctx context.Context, rt controller.Runtime, r
 				Conditions:         []*pbresource.Condition{ConditionFailed},
 			}
 			updateStatus(ctx, rt, res, newStatus)
-			return err
+			return nil // return nil to avoid continuous requeueing
 		}
 	}
 
 	// Load the management token
-	token, err := bootstrap.LoadManagementToken(ctx, rt.Logger, hcpClient, r.dataDir)
+	tokenCtx, tokenCancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer tokenCancel()
+	_, err = bootstrap.LoadManagementToken(tokenCtx, rt.Logger, hcpClient, r.dataDir)
 	if err != nil {
-		rt.Logger.Error("error loading management token", "error", err)
+		var conditions []*pbresource.Condition
+		switch {
+		case errors.Is(err, bootstrap.ErrFetchBootstrapUnauthorized):
+			conditions = append(conditions, ConditionUnauthorized)
+		case errors.Is(err, bootstrap.ErrFetchBootstrapForbidden):
+			conditions = append(conditions, ConditionForbidden)
+		default:
+			conditions = append(conditions, ConditionFailed)
+		}
 		newStatus := &pbresource.Status{
 			ObservedGeneration: res.Generation,
-			Conditions:         []*pbresource.Condition{ConditionFailed},
+			Conditions:         conditions,
 		}
 		updateStatus(ctx, rt, res, newStatus)
-		return err
+		return nil // return nil to avoid continuous requeueing
 	}
-	_ = token // TODO: temporary until we use the token
 
 	successStatus := &pbresource.Status{
 		ObservedGeneration: res.Generation,
