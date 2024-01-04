@@ -15,7 +15,6 @@ import (
 	"github.com/hashicorp/consul/agent/hcp/client"
 	"github.com/hashicorp/consul/internal/controller"
 	"github.com/hashicorp/consul/internal/hcp/internal/types"
-	"github.com/hashicorp/consul/internal/resource/resourcetest"
 	rtest "github.com/hashicorp/consul/internal/resource/resourcetest"
 	pbhcp "github.com/hashicorp/consul/proto-public/pbhcp/v1"
 	"github.com/hashicorp/consul/proto-public/pbresource"
@@ -35,7 +34,7 @@ type controllerSuite struct {
 
 func (suite *controllerSuite) SetupTest() {
 	suite.ctx = testutil.TestContext(suite.T())
-	suite.tenancies = resourcetest.TestTenancies()
+	suite.tenancies = rtest.TestTenancies()
 	client := svctest.NewResourceServiceBuilder().
 		WithRegisterFns(types.Register).
 		WithTenancies(suite.tenancies...).
@@ -79,7 +78,7 @@ func (suite *controllerSuite) TestController_Ok() {
 	linkData := &pbhcp.Link{
 		ClientId:     "abc",
 		ClientSecret: "abc",
-		ResourceId:   "abc",
+		ResourceId:   types.GenerateTestResourceID(suite.T()),
 	}
 
 	link := rtest.Resource(pbhcp.LinkType, "global").
@@ -103,7 +102,7 @@ func (suite *controllerSuite) TestControllerResourceApisEnabled_LinkDisabled() {
 	linkData := &pbhcp.Link{
 		ClientId:     "abc",
 		ClientSecret: "abc",
-		ResourceId:   "abc",
+		ResourceId:   types.GenerateTestResourceID(suite.T()),
 	}
 	// The controller is currently a no-op, so there is nothing to test other than making sure we do not panic
 	link := rtest.Resource(pbhcp.LinkType, "global").
@@ -134,7 +133,7 @@ func (suite *controllerSuite) TestControllerResourceApisEnabledWithOverride_Link
 	linkData := &pbhcp.Link{
 		ClientId:     "abc",
 		ClientSecret: "abc",
-		ResourceId:   "abc",
+		ResourceId:   types.GenerateTestResourceID(suite.T()),
 	}
 	// The controller is currently a no-op, so there is nothing to test other than making sure we do not panic
 	link := rtest.Resource(pbhcp.LinkType, "global").
